@@ -1,65 +1,117 @@
-/* global KEEP */
-
-window.addEventListener('DOMContentLoaded', () => {
-
-  KEEP.themeInfo = {
-    theme: `Keep v${KEEP.theme_config.version}`,
-    author: 'XPoet',
-    repository: 'https://github.com/XPoet/hexo-theme-keep'
+(function () {
+  var searchEl = document.querySelector('.search-do'),
+      searchWrap = document.querySelector('.search-wrap'),
+      searchContent = document.querySelector('.search-content'),
+      inputEl = searchWrap.querySelector('input'),
+      resultEl = searchWrap.querySelector('.search-result'),
+      oldResultElString = resultEl.innerHTML,
+      postData;
+  
+  function showSearch (e) {
+    e.preventDefault();
+    searchWrap.style.display = 'flex';
+    inputEl.focus();
+    getSearchData();
   }
 
-  KEEP.localStorageKey = 'KEEP-THEME-STATUS';
-
-  KEEP.styleStatus = {
-    isExpandPageWidth: false,
-    isDark: false,
-    fontSizeLevel: 0,
-    isOpenPageAside: true
+  function hideSearch () {
+    searchWrap.style.display = 'none';
+    resultEl.innerHTML = oldResultElString;
+    postData = null;
   }
 
-  // print theme base info
-  KEEP.printThemeInfo = () => {
-    console.log(`\n %c ${KEEP.themeInfo.theme} %c ${KEEP.themeInfo.repository} \n`, `color: #fadfa3; background: #333; padding: 5px 0;`, `background: #fadfa3; padding: 5px 0;`);
+  function indexOfIgnoreTransform (a, b) {
+    a = (a || '').toLocaleLowerCase();
+    b = (b || '').toLocaleLowerCase();
+
+    return a.indexOf(b) > -1;
   }
 
-  // set styleStatus to localStorage
-  KEEP.setStyleStatus = () => {
-    localStorage.setItem(KEEP.localStorageKey, JSON.stringify(KEEP.styleStatus));
-  }
-
-  // get styleStatus from localStorage
-  KEEP.getStyleStatus = () => {
-    let temp = localStorage.getItem(KEEP.localStorageKey);
-    if (temp) {
-      temp = JSON.parse(temp);
-      for (let key in KEEP.styleStatus) {
-        KEEP.styleStatus[key] = temp[key];
+  function searchFromJson(data, key) {
+    if (!data || data.length < 1 || !key) {
+      return;
+    }
+    return data.filter(function(post) {
+      if (indexOfIgnoreTransform(post.title, key)) {
+        return true;
       }
-      return temp;
-    } else {
-      return null;
+      if (indexOfIgnoreTransform(post.content, key)) {
+        return true;
+      }
+    })
+  }
+
+  function render(data) {
+    if (!data || data.length < 1) {
+      return resultEl.innerHTML = '<div class="search-no">NOT FIND!</div>';
+    }
+    var htmlString = '',
+      tempEl = document.createElement('div');
+
+    data.forEach(function(post) {
+      tempEl.innerHTML = (post.content || '').slice(0, 100)
+      htmlString += '<li data-url="' + post.url + '"' + '><h3>' + 
+        post.title + '</h3><p>' + tempEl.innerText + '</p></li>'
+    });
+
+    resultEl.innerHTML = htmlString;
+  }
+
+  function getSearchData (callback) {
+    if (postData) {
+      callback && callback(postData);
+      return;
+    }
+    fetch('/search.json').then(function (respons) {
+      respons.json().then(function(data){
+        postData = data;
+        callback && callback(postData);
+      }); 
+    }).catch(function() {
+      callback && (resultEl.innerHTML = 'An error has occurred！');
+    });
+  }
+
+  function doSearch (e) {
+    if (e.isComposing) {
+      return;
+    }
+    if (!e.target.value) {
+      resultEl.innerHTML = oldResultElString;
+      return;
+    }
+    getSearchData(function(data){
+      render(searchFromJson(data, e.target.value));
+    });
+  }
+
+  function goto (url) {
+    window.location.href = url;
+  }
+
+  function gotoSearchResult(e) {
+    e.stopPropagation();
+    var el = e.target;
+
+    if (el.tagName !== 'LI') {
+      el = el.parentNode;
+    }
+    if (el.tagName !== 'LI' || !el.dataset.url) {
+      return;
+    }
+    goto(window.location.origin + el.dataset.url);
+  }
+
+  function onDocKeydown (e) {
+    if (e.keyCode === 27) {
+      hideSearch();
     }
   }
 
-  KEEP.refresh = () => {
-    KEEP.initUtils();
-    KEEP.initHeaderShrink();
-    KEEP.initModeToggle();
-    KEEP.initBack2Top();
-
-    if (KEEP.theme_config.local_search.enable === true) {
-      KEEP.initLocalSearch();
-    }
-
-    if (KEEP.theme_config.code_copy.enable === true) {
-      KEEP.initCodeCopy();
-    }
-
-    if (KEEP.theme_config.lazyload.enable === true) {
-      KEEP.initLazyLoad();
-    }
-  }
-
-  KEEP.printThemeInfo();
-  KEEP.refresh();
-});
+  searchEl.addEventListener('click', showSearch);
+  inputEl.addEventListener('input', doSearch);
+  searchWrap.addEventListener('click', hideSearch);
+  searchContent.addEventListener('click', gotoSearchResult);
+  inputEl.addEventListener('compositionend', doSearch);
+  document.addEventListener('keydown', onDocKeydown);
+})();
