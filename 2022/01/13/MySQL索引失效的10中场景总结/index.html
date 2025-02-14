@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html >
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  
+  <title>MySQL索引失效的10中场景总结 | Hero89</title>
+  <meta name="description" content="A geeker blog." />
+  <meta name="keywords" content="hexo,theme,icer,hungmou zhejiangwuyi" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="1.不满足最左匹配原则假设一张表存在一个索引idx_code_age_name，索引字段顺序如下：  code age name  显然字段code位于最左侧  还原满足最左匹配的索引生效场景   explain select * from userwhere code&#x3D;’101’; explain select * from userwhere code&#x3D;’101’ and age&#x3D;21 e">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL索引失效的10中场景总结">
+<meta property="og:url" content="http://example.com/2022/01/13/MySQL%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%8410%E4%B8%AD%E5%9C%BA%E6%99%AF%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="Hero89">
+<meta property="og:description" content="1.不满足最左匹配原则假设一张表存在一个索引idx_code_age_name，索引字段顺序如下：  code age name  显然字段code位于最左侧  还原满足最左匹配的索引生效场景   explain select * from userwhere code&#x3D;’101’; explain select * from userwhere code&#x3D;’101’ and age&#x3D;21 e">
+<meta property="og:locale">
+<meta property="article:published_time" content="2022-01-13T06:23:50.708Z">
+<meta property="article:modified_time" content="2022-01-13T08:10:25.584Z">
+<meta property="article:author" content="Hungmou">
+<meta property="article:tag" content="学习园地">
+<meta name="twitter:card" content="summary">
+  
+  
+
+  <link rel='stylesheet' href='//cdn.staticfile.org/nprogress/0.2.0/nprogress.css'/>
+  <link rel="stylesheet" href="//cdn.staticfile.org/highlight.js/9.15.10/styles/github-gist.min.css">
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_405585_yuudmyqpo3q.css">
+  <script src='//cdn.staticfile.org/nprogress/0.2.0/nprogress.min.js'></script>
+  <!-- <script>try{Typekit.load({ async: false });}catch(e){}</script> -->
+  
+<link rel="stylesheet" href="/style.css">
+
+  
+
+  
+
+<!-- baidu Analytics -->
+<script>
+  var _hmt = _hmt || [];
+  (function() {
+    var hm = document.createElement("script");
+    hm.src = "https://hm.baidu.com/hm.js?98a3d06bfe89df134f3ceb695c15aa48";
+    var s = document.getElementsByTagName("script")[0]; 
+    s.parentNode.insertBefore(hm, s);
+  })();
+  </script>
+  
+<!-- End baidu Analytics -->
+
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <script src="//eqcn.ajz.miesnfu.com/wp-content/plugins/wp-3d-pony/live2dw/lib/L2Dwidget.min.js"></script>
+
+  <body>
+
+    <script>NProgress.start();</script>
+
+    <div id="site-wrapper">
+
+      <header class="header" style="height:0px;margin-bottom:10px;">
+  <!-- <nav class="header-nav">
+      
+            <a href="/" class="archives">首页</a>
+      
+            <a href="/tags/job/" class="archives">工作</a>
+      
+            <a href="/tags/life/" class="archives">生活</a>
+      
+            <a href="/tags/edu/" class="archives">学习园地</a>
+      
+  </nav> -->
+</header>
+        <script>NProgress.set(0.4);</script>
+
+        <main id="main" role="main">
+          <article id="post-MySQL索引失效的10中场景总结"
+  class="post article white-box article-type-post animated fade-in-top"
+  itemscope itemprop="blogPost">
+  <section class="post-header article-header">
+    <h2 class="title">
+        <a href="/2022/01/13/MySQL%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%8410%E4%B8%AD%E5%9C%BA%E6%99%AF%E6%80%BB%E7%BB%93/">
+          MySQL索引失效的10中场景总结
+        </a>
+      </h2>
+      <div class="subtitle">
+          <time>
+            2022-01-13
+          </time>
+          
+            <span class="tags">
+                <span class="iconfont icon-tag"></span>
+                <a class="tag-none-link" href="/tags/%E5%AD%A6%E4%B9%A0%E5%9B%AD%E5%9C%B0/" rel="tag">学习园地</a>
+              </span>
+          
+      </div>
+  </section>
+  <section class="content">
+    <div class="article-entry" itemprop="articleBody">
+      <blockquote>
+</blockquote>
+<h3 id="1-不满足最左匹配原则"><a href="#1-不满足最左匹配原则" class="headerlink" title="1.不满足最左匹配原则"></a>1.不满足<strong>最左匹配</strong>原则</h3><p>假设一张表存在一个索引idx_code_age_name，索引字段顺序如下：</p>
+<ol>
+<li>code</li>
+<li>age</li>
+<li>name</li>
+</ol>
+<p>显然字段<strong>code</strong>位于最左侧</p>
+<blockquote>
+<p>还原满足<strong>最左匹配</strong>的索引<strong>生效</strong>场景</p>
+</blockquote>
+<ul>
+<li><em>explain select * from user<br>where <strong>code</strong>=’101’;</em></li>
+<li><em>explain select * from user<br>where <strong>code</strong>=’101’ and age=21</em></li>
+<li><em>explain select * from user<br>where <strong>code</strong>=’101’ and age=21 and name=’周星驰’</em><blockquote>
+<p>还原不满足<strong>最左匹配</strong>索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain select * from user<br>where name=’101’;</em></li>
+<li><em>explain select * from user<br>where age=21</em></li>
+<li><em>explain select * from user<br>where age=21 and name=’周星驰’</em><h3 id="2-使用了select"><a href="#2-使用了select" class="headerlink" title="2.使用了select *"></a>2.使用了select *</h3><blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain<br>select * from user where name=’苏三’;（走了全表扫描）</em><blockquote>
+<p>还原索引<strong>生效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain<br>select * from user where name=’苏三’;（走了全表扫描）</em><blockquote>
+<p><strong>原理</strong>:如果select语句中的查询列，都是索引列，那么这些列被称为覆盖索引。这种情况下，查询的相关字段都能走索引，索引查询效率相对来说更高一些。<br>而使用select *查询所有列的数据，大概率会查询非索引列的数据，非索引列不会走索引，查询效率非常低。</p>
+</blockquote>
+<h3 id="3-索引列上有计算"><a href="#3-索引列上有计算" class="headerlink" title="3. 索引列上有计算"></a>3. 索引列上有计算</h3>假设id是表user的索引字段，如果使用当前索引字段做计算时会导致索引失效<blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain select * from user where <strong>id+1</strong>=2;</em><h3 id="4-索引列用了函数"><a href="#4-索引列用了函数" class="headerlink" title="4. 索引列用了函数"></a>4. 索引列用了函数</h3>假设height是表user的索引字段，如果在当前索引字段上使用函数时会导致索引失效<blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain select * from user  where <strong>SUBSTR</strong>(height,1,2)=17</em><h3 id="5-字段类型不同"><a href="#5-字段类型不同" class="headerlink" title="5.字段类型不同"></a>5.字段类型不同</h3>假设code字段时user表的索引字段，该字段为字符串类型，如果按int类型查询时会导致失效<blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain<br>select * from user where code=101;</em><blockquote>
+<p>还原索引<strong>生效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain<br>select * from user where code=”101”;</em><h3 id="6-like左边包含"><a href="#6-like左边包含" class="headerlink" title="6.like左边包含%"></a>6.like左边包含%</h3>模糊查询，在我们日常的工作中，使用频率还是比较高的，但如果like用的不好，就可能会出现性能问题，因为有时候它的索引会失效。<blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain select * from user<br>where code like ‘%1%’</em><blockquote>
+<p>还原索引<strong>生效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain select * from user<br>where code like ‘10%’</em><h3 id="7-列对比"><a href="#7-列对比" class="headerlink" title="7.列对比"></a>7.列对比</h3>假如我们现在有这样一个需求：过滤出表中某两列值相同的记录。比如user表中id字段和height字段，查询出这两个字段中值相同的记录。<blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain select * from user<br>where id=height</em><h3 id="8-使用or关键字"><a href="#8-使用or关键字" class="headerlink" title="8.使用or关键字"></a>8.使用or关键字</h3><blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain select * from user<br>where id=1 or height=’175’</em><h3 id="9-not-in和not-exists"><a href="#9-not-in和not-exists" class="headerlink" title="9. not in和not exists"></a>9. not in和not exists</h3>当使用in 或者 exists时索引会生效，反之则失效<blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><em>explain select * from user<br>where height not in (173,174,175,176)</em><h3 id="10-order-by的坑"><a href="#10-order-by的坑" class="headerlink" title="10. order by的坑"></a>10. order by的坑</h3><blockquote>
+<p>还原索引<strong>失效</strong>场景</p>
+</blockquote>
+</li>
+<li><h3 id="没加where或limit"><a href="#没加where或limit" class="headerlink" title="没加where或limit"></a><em>没加where或limit</em></h3><ul>
+<li><em>explain select * from user<br>order by code, name;</em></li>
+</ul>
+</li>
+<li><h3 id="对不同的索引做order-by"><a href="#对不同的索引做order-by" class="headerlink" title="对不同的索引做order by"></a><em>对不同的索引做order by</em></h3><ul>
+<li><em>explain select * from user<br>order by code, height limit 100;</em></li>
+</ul>
+</li>
+<li><h3 id="不满足最左匹配原则"><a href="#不满足最左匹配原则" class="headerlink" title="不满足最左匹配原则"></a><em>不满足最左匹配原则</em></h3><ul>
+<li><em>explain select * from user<br>order by name limit 100;</em></li>
+</ul>
+</li>
+<li><h3 id="不同的排序"><a href="#不同的排序" class="headerlink" title="不同的排序"></a><em>不同的排序</em></h3><ul>
+<li><em>explain select * from user<br>order by code asc,age desc limit 100;</em></li>
+</ul>
+</li>
+</ul>
+
+    </div>
+  </section>
+
+  
+  
+</article>
+            <script>NProgress.set(0.6);</script>
+        </main>
+
+        
+          <script>NProgress.set(0.8);</script>
+          <div style="text-align: center;color:red;width: 100%;padding: 5px;font-size: 1rem;;">
+
+            <script src="https://sdk.jinrishici.com/v2/browser/jinrishici.js" charset="utf-8"></script>
+            <div id="poem_sentence"></div>
+            <div id="poem_info"></div>
+            <div id="weather_info"></div>
+            <div>联系方式：511175007@qq.com</div>
+            <script type="text/javascript">
+              jinrishici.load(function (result) {
+                var sentence = document.querySelector("#poem_sentence")
+                var info = document.querySelector("#poem_info")
+                sentence.innerHTML = result.data.content
+                info.innerHTML = '【' + result.data.origin.dynasty + '】' + result.data.origin.author + '《' + result.data.origin.title + '》'
+              });
+
+              var url = "https://v2.jinrishici.com/info";
+              var time = 1000;
+              var timeout = false;
+              var request = new XMLHttpRequest();
+              var timer = setTimeout(function () {
+                timeout = true;
+                request.abort();
+              }, time);
+              request.open("GET", url);
+              request.onreadystatechange = function () {
+                if (request.readyState !== 4) {
+                  return;
+                }
+                if (timeout) {
+                  return;
+                }
+                clearTimeout(timer);
+                if (request.status === 200) {
+                  var json = JSON.parse(request.responseText);
+                  if (json.status == "success") {
+                    var weatherData = json.data.weatherData;
+                    var region = json.data.region;
+                    var weather = document.querySelector("#weather_info");
+                    weather.innerHTML = "【" + region + "," + weatherData.temperature + "°|" + weatherData.weather + "】";
+                  }
+                }
+              };
+              request.send(null);
+            </script>
+
+          </div>
+
+    </div>
+
+    <script src="//cdn.staticfile.org/highlight.js/9.15.10/highlight.min.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+<script src="/js/main.js"></script>
+
+
+<!-- Commit -->
+
+
+
+      <script>
+        NProgress.done();
+      </script>
+
+      <script type="text/javascript">
+        // 其他可选的模型： 
+        //  小帅哥： https://unpkg.com/live2d-widget-model-chitose@1.0.5/assets/chitose.model.json
+        //  萌娘：https://unpkg.com/live2d-widget-model-shizuku@1.0.5/assets/shizuku.model.json 
+        //  小可爱（女）：https://unpkg.com/live2d-widget-model-koharu@1.0.5/assets/koharu.model.json 
+        //  小可爱（男）：https://unpkg.com/live2d-widget-model-haruto@1.0.5/assets/haruto.model.json
+        //  初音：https://unpkg.com/live2d-widget-model-miku@1.0.5/assets/miku.model.json 
+        //  狗狗：https://unpkg.com/live2d-widget-model-wanko@1.0.5/assets/wanko.model.json 
+        L2Dwidget.init({
+          "model": { "jsonPath": "//unpkg.com/live2d-widget-model-wanko@1.0.5/assets/wanko.model.json", "scale": 1, "hHeadPos": 0.5, "vHeadPos": 0.618 },
+          "dialog": {
+            enable: true,
+            script: {
+              'tap body': '哎呀！别碰我！',
+              'tap face': '仅供观赏',
+            }
+          },
+          "mobile": { "show": true, scale: 0.5 },
+          "display": {
+            "superSample": 2,
+            "width": 100,
+            "height": 200,
+            "position": "right",
+            "hOffset": 0,
+            "vOffset": 0
+          }
+        });
+      </script>
+  </body>
+
+  </html>
